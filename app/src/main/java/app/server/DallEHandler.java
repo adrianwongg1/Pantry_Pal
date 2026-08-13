@@ -4,14 +4,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 import java.util.Scanner;
 
 import org.json.JSONObject;
@@ -30,15 +30,13 @@ import com.sun.net.httpserver.HttpHandler;
 
 public class DallEHandler implements HttpHandler{
     private static final String API_ENDPOINT = "https://api.openai.com/v1/images/generations";
-    private static final String API_KEY = "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";
-    private static final String MODEL = "dall-e-2";
-
     private Path imagePath;
 
     @Override
     public void handle(HttpExchange httpExchange) throws IOException {
         String method = httpExchange.getRequestMethod();
-        String response = "Request Recieved";
+        String response = "Request received";
+        int status = 200;
         try {
             if (method.equals("POST")) {
               response = handlePost(httpExchange);
@@ -46,22 +44,13 @@ public class DallEHandler implements HttpHandler{
               throw new Exception("Not Valid Request Method");
             }
 
-            //Sending back response to the client
-            try {
-                byte[] bs = response.getBytes("UTF-8");
-                httpExchange.sendResponseHeaders(200, bs.length);
-                OutputStream os = httpExchange.getResponseBody();
-                os.write(bs);
-                os.close();
-            } catch (IOException ex) {
-                System.out.println(ex.toString());
-            }
-
         } catch (Exception e) {
-            System.out.println("An erroneous request");
-            response = e.toString();
-            e.printStackTrace();
+            status = 503;
+            response = "Image generation failed: " + e.getMessage();
         }
+        byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        httpExchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream output = httpExchange.getResponseBody()) { output.write(bytes); }
 
     }
 
@@ -70,22 +59,19 @@ public class DallEHandler implements HttpHandler{
      * Spits out the generated image URL from the servers
      * 
      */
-    private String handlePost(HttpExchange httpExchange) throws IOException, InterruptedException, URISyntaxException{
+    private String handlePost(HttpExchange httpExchange) throws IOException, InterruptedException {
         // Set request parameters
         InputStream inStream = httpExchange.getRequestBody();
         Scanner scanner = new Scanner(inStream);
         
-        String prompt = scanner.nextLine();
-        
-        int n = 1;
+        String prompt = URLDecoder.decode(scanner.nextLine(), java.nio.charset.StandardCharsets.UTF_8);
         
         // Create a request body which you will pass into request object
         JSONObject requestBody = new JSONObject();
     
-        requestBody.put("model", MODEL);
+        requestBody.put("model", Configuration.imageModel());
         requestBody.put("prompt", prompt);
-        requestBody.put("n", n);
-        requestBody.put("size", "256x256");
+        requestBody.put("size", "1024x1024");
 
         // Create the HTTP client
         HttpClient client = HttpClient.newHttpClient();
@@ -95,7 +81,7 @@ public class DallEHandler implements HttpHandler{
             .newBuilder()
             .uri(URI.create(API_ENDPOINT))
             .header("Content-Type", "application/json")
-            .header("Authorization", String.format("Bearer %s", API_KEY))
+            .header("Authorization", "Bearer " + Configuration.openAiApiKey())
             .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
             .build();
 
@@ -109,25 +95,24 @@ public class DallEHandler implements HttpHandler{
         // Process the response
         String responseBody = response.body();
 
-        JSONObject responseJson = new JSONObject(responseBody);
-        System.out.println(responseBody);
-
-        String generatedImageURL = responseJson.getJSONArray("data").getJSONObject(0).getString("url");
-
-        System.out.println("DALL-E Response:");
-        System.out.println(generatedImageURL);
-
-        // Download the Generated Image to Current Directory
-        try (InputStream in = new URI(generatedImageURL).toURL().openStream()) {
-            // Generate a unique file name using timestamp
-            String timestamp = String.valueOf(System.currentTimeMillis());
-            String imagePath = "app/src/main/resources/image_" + timestamp + ".jpg"; 
-
-            Path imagePathObj = Paths.get(imagePath);
-            Files.copy(in, imagePathObj, StandardCopyOption.REPLACE_EXISTING);
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("OpenAI returned HTTP " + response.statusCode() + ": " + responseBody);
         }
+        JSONObject image = new JSONObject(responseBody).getJSONArray("data").getJSONObject(0);
+
+        // GPT Image returns base64 data. Persist it outside source resources and give
+        // JavaFX a local file URL; a configured legacy image model may still return a URL.
+        if (image.has("b64_json")) {
+            Path imageDirectory = Paths.get("generated-images");
+            Files.createDirectories(imageDirectory);
+            imagePath = imageDirectory.resolve("recipe-" + System.currentTimeMillis() + ".png");
+            Files.write(imagePath, Base64.getDecoder().decode(image.getString("b64_json")));
+            scanner.close();
+            return imagePath.toAbsolutePath().toUri().toString();
+        }
+
+        String generatedImageURL = image.getString("url");
         scanner.close();
-    
         return generatedImageURL;
     }
 

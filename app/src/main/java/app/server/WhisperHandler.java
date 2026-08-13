@@ -21,6 +21,7 @@ public class WhisperHandler implements HttpHandler {
     public void handle(HttpExchange httpExchange) throws IOException {
         String method = httpExchange.getRequestMethod();
         String response = "Request Received";
+        int status = 200;
 
         try {
             if (method.equals("POST")) {
@@ -31,16 +32,13 @@ public class WhisperHandler implements HttpHandler {
               throw new Exception("Not Valid Request Method");
             }
     
-            // Sending back response to the client
-            httpExchange.sendResponseHeaders(200, response.length());
-            OutputStream outStream = httpExchange.getResponseBody();
-            outStream.write(response.getBytes());
-            outStream.close();
-
         } catch (Exception e) {
-            System.out.println("An erroneous request");
-            e.printStackTrace();
+            status = 503;
+            response = "Transcription failed: " + e.getMessage();
         }
+        byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        httpExchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream outStream = httpExchange.getResponseBody()) { outStream.write(bytes); }
     }
 
     /*

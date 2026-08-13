@@ -29,12 +29,6 @@ dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:31.1-jre'
 
-    // implementation fileTree(include: ['*.jar'], dir: 'lib-mac')
-    // //deploymentTools(fileTree('lib') { include '*.jar' })
-    // implementation files('lib-mac')
-    implementation 'org.openjfx:javafx-controls:11.0.2'
-
-
     implementation 'org.mongodb:mongodb-driver-sync:4.11.0'
     implementation 'org.json:json:20210307'
 }
@@ -44,7 +38,17 @@ application {
     mainClass = 'app.client.App'
 }
 
+tasks.register('runServer', JavaExec) {
+    group = 'application'
+    description = 'Starts PantryPal\'s local HTTP API server.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'app.server.MyServer'
+}
+
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+    if (System.getenv('RUN_INTEGRATION_TESTS') == null) {
+        useJUnitPlatform { excludeTags 'integration' }
+    }
 }

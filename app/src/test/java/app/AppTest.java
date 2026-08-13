@@ -7,6 +7,7 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -33,10 +34,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 
 
+@Tag("integration")
 class AppTest {
     // Tests whether the prompt we give chatgpt maintains the same provided ingredients as the original recipe
     
-    private final String MONGOURI =  "mongodb+srv://bryancho:73a48JL4@cluster0.jpmyzqg.mongodb.net/?retryWrites=true&w=majority";
+    private final String MONGOURI = System.getenv("MONGODB_URI");
 
     @Test 
     void testGptSameIngredients() throws IOException {

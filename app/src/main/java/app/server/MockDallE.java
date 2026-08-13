@@ -24,24 +24,18 @@ public class MockDallE implements HttpHandler{
             } else {
               throw new Exception("Not Valid Request Method");
             }
-
-            //Sending back response to the client
-            try {
-                byte[] bs = response.getBytes("UTF-8");
-                httpExchange.sendResponseHeaders(200, bs.length);
-                OutputStream os = httpExchange.getResponseBody();
-                os.write(bs);
-                os.close();
-            } catch (IOException ex) {
-                System.out.println(ex.toString());
-            }
-
         } catch (Exception e) {
             System.out.println("An erroneous request");
             response = e.toString();
             e.printStackTrace();
         }
 
+        //Sending back response to the client
+        byte[] bs = response.getBytes("UTF-8");
+        httpExchange.sendResponseHeaders(200, bs.length);
+        OutputStream os = httpExchange.getResponseBody();
+        os.write(bs);
+        os.close();
     }
 
     private String handlePost(HttpExchange httpExchange) throws IOException, InterruptedException, URISyntaxException{

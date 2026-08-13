@@ -24,14 +24,13 @@ import com.sun.net.httpserver.HttpHandler;
  *  
  */
 public class ChatGPTHandler implements HttpHandler {
-    private static final String API_ENDPOINT = "https://api.openai.com/v1/completions";
-    private static final String API_KEY = "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";
-    private static final String MODEL = "text-davinci-003";
+    private static final String API_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
     @Override
     public void handle(HttpExchange httpExchange) throws IOException {
         String method = httpExchange.getRequestMethod();
-        String response = "Request Recieved";
+        String response = "Request received";
+        int status = 200;
         try {
             if (method.equals("POST")) {
               response = handlePost(httpExchange);
@@ -39,22 +38,13 @@ public class ChatGPTHandler implements HttpHandler {
               throw new Exception("Not Valid Request Method");
             }
 
-            try {
-                byte[] bs = response.getBytes("UTF-8");
-                httpExchange.sendResponseHeaders(200, bs.length);
-                OutputStream os = httpExchange.getResponseBody();
-                os.write(bs);
-                os.close();
-            } catch (IOException ex) {
-                System.out.println(ex.toString());
-            }
-
         } catch (Exception e) {
-            System.out.println("An erroneous request");
-            response = e.toString();
-            e.printStackTrace();
-            
+            status = 503;
+            response = "Recipe generation failed: " + e.getMessage();
         }
+        byte[] bytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        httpExchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream output = httpExchange.getResponseBody()) { output.write(bytes); }
         
     }
 
@@ -70,11 +60,15 @@ public class ChatGPTHandler implements HttpHandler {
         
         String prompt = URLDecoder.decode(scanner.nextLine(), "UTF-8"); 
         
-        int tokens = 500;  
+        int tokens = 700;
         // Create a request body which you will pass into request object
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", MODEL);
-        requestBody.put("prompt", prompt);
+        requestBody.put("model", Configuration.textModel());
+        requestBody.put("messages", new JSONArray()
+            .put(new JSONObject().put("role", "system").put("content",
+                "Create a practical recipe. Return exactly these three labels on separate lines: " +
+                "Title:, Ingredients:, Instructions:. Keep each value on one line."))
+            .put(new JSONObject().put("role", "user").put("content", prompt)));
         requestBody.put("max_tokens", tokens);
         requestBody.put("temperature", 1.0);
         // Create the HTTP Client=
@@ -84,7 +78,7 @@ public class ChatGPTHandler implements HttpHandler {
         .newBuilder()
         .uri(URI.create(API_ENDPOINT))
         .header("Content-Type", "application/json")
-        .header("Authorization", String.format("Bearer %s", API_KEY))
+        .header("Authorization", "Bearer " + Configuration.groqApiKey())
         .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
         .build();
         // Send the request and receive the response
@@ -94,10 +88,12 @@ public class ChatGPTHandler implements HttpHandler {
         );
         // Process the response
         String responseBody = response.body();
-        System.out.println("||RESPONSE BODY|| " + responseBody);
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("Groq returned HTTP " + response.statusCode() + ": " + responseBody);
+        }
         JSONObject responseJson = new JSONObject(responseBody);
         JSONArray choices = responseJson.getJSONArray("choices");
-        generatedText = choices.getJSONObject(0).getString("text");
+        generatedText = choices.getJSONObject(0).getJSONObject("message").getString("content");
 
         // parse generated text
         int titleStart = generatedText.indexOf("Title:");
@@ -110,6 +106,9 @@ public class ChatGPTHandler implements HttpHandler {
         int skipIng = ingString.length();
         int skipIns = insString.length();
 
+        if (titleStart < 0 || ingStart < 0 || insStart < 0) {
+            throw new IOException("Groq returned a recipe in an unexpected format.");
+        }
         String title = generatedText.substring(titleStart+skipTitle,ingStart);
         String ing = generatedText.substring(ingStart+skipIng,insStart);
         String ins = generatedText.substring(insStart+skipIns);

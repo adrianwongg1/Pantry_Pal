@@ -12,9 +12,7 @@ import org.json.JSONObject;
  */
 
 public class Whisper {
-    private static final String API_ENDPOINT = "https://api.openai.com/v1/audio/transcriptions";
-    private static final String TOKEN = "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";
-    private static final String MODEL = "whisper-1";
+    private static final String API_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions";
 
     // Helper method to write a parameter to the output stream in multipart form data format
     private static void writeParameterToOutputStream(
@@ -41,7 +39,7 @@ public class Whisper {
         "\"\r\n"
         ).getBytes()
             );
-        outputStream.write(("Content-Type: audio/mpeg\r\n\r\n").getBytes());
+        outputStream.write(("Content-Type: audio/wav\r\n\r\n").getBytes());
 
         FileInputStream fileInputStream = new FileInputStream(file);
         byte[] buffer = new byte[1024];
@@ -102,13 +100,13 @@ public class Whisper {
         connection.setRequestProperty(
                 "Content-Type",
                 "multipart/form-data; boundary=" + boundary);
-        connection.setRequestProperty("Authorization", "Bearer " + TOKEN);
+        connection.setRequestProperty("Authorization", "Bearer " + Configuration.groqApiKey());
 
         // Set up output stream to write request body
         OutputStream outputStream = connection.getOutputStream();
 
         // Write model parameter to request body
-        writeParameterToOutputStream(outputStream, "model", MODEL, boundary);
+        writeParameterToOutputStream(outputStream, "model", Configuration.transcriptionModel(), boundary);
 
         // Write file parameter to request body
         writeFileToOutputStream(outputStream, file, boundary);

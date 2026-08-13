@@ -6,3 +6,6 @@ build
 
 # Ignore Audio files
 recording.wav
+.env
+generated-images/
+app/bin/

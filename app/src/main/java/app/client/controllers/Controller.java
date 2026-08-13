@@ -10,6 +10,7 @@ import java.io.IOException;
 
 import app.client.*;
 import app.client.views.*;
+import app.server.Configuration;
 import app.server.ServerChecker;
 
 /**
@@ -348,12 +349,14 @@ public class Controller {
         recipeTitle = recipeParts[0];
         response = response.replace("+", "\n");
 
-        String dallePrompt = "Generate a real picture of " + recipeTitle;
-        dalleResponse = model.performRequest("POST", null, null, dallePrompt, null, "dalle");
-
-        Image image = new Image(dalleResponse);
-
-        view.getGptFrame().getImageView().setImage(image);
+        if (Configuration.imageGenerationEnabled()) {
+            String dallePrompt = "Generate a real picture of " + recipeTitle;
+            dalleResponse = model.performRequest("POST", null, null, dallePrompt, null, "dalle");
+            view.getGptFrame().getImageView().setImage(new Image(dalleResponse));
+        } else {
+            dalleResponse = "";
+            view.getGptFrame().getImageView().setImage(null);
+        }
         view.getGptFrame().getRecipeText().setText(response);
 
         // Change scenes after getting response
@@ -421,15 +424,17 @@ public class Controller {
         recipeTitle = recipeParts[0];
         response = response.replace("+", "\n");
 
-        String dallePrompt = "Generate a real picture of " + recipeTitle;
-        String dalleResponse = model.performRequest("POST", null, null, dallePrompt, null, "dalle");
-        
-        Image image = new Image(dalleResponse); 
+        if (Configuration.imageGenerationEnabled()) {
+            String dallePrompt = "Generate a real picture of " + recipeTitle;
+            String dalleResponse = model.performRequest("POST", null, null, dallePrompt, null, "dalle");
+            view.getGptFrame().getImageView().setImage(new Image(dalleResponse));
+        } else {
+            view.getGptFrame().getImageView().setImage(null);
+        }
 
         // Change delimiter to make UI readible
         response = response.replace("+", "\n");
 
-        view.getGptFrame().getImageView().setImage(image);
         view.getGptFrame().getRecipeText().setText(response);
 
     }

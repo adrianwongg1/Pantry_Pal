@@ -14,6 +14,7 @@ import javax.sound.sampled.TargetDataLine;
 
 import java.net.URLEncoder;
 import java.net.URL;
+import app.server.Configuration;
 
 /**
  * Model.java
@@ -61,6 +62,11 @@ public class Model {
             // Establish HTTP connection
             URL url = new URI(urlString).toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            // This call can run synchronously during JavaFX startup (auto-login),
+            // so it must never block indefinitely if the server hangs (e.g. an
+            // unreachable database) or the window will never show.
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(60000);
 
             if (route.equals("whisper")) {
                 sendPOSTWhisper(conn);
@@ -178,6 +184,11 @@ public class Model {
     }
 
     public void startRecording() {
+        // Demo mode returns bundled transcription, so it must also work on
+        // machines without a microphone or microphone permission.
+        if (Configuration.demoMode()) {
+            return;
+        }
         Thread t = new Thread(
             new Runnable() {
                 @Override

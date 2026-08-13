@@ -36,19 +36,19 @@ public class loadRecipeHandler implements HttpHandler{
         } else {
           throw new Exception("Not Valid Request Method");
         }
-
-        System.out.println("RESPONSE BYTES: " + response);
-
-        //Sending back response to the client
-        httpExchange.sendResponseHeaders(200, response.length());
-        OutputStream outStream = httpExchange.getResponseBody();
-        outStream.write(response.getBytes());
-        outStream.close();
-
       } catch (Exception e) {
         System.out.println("An erroneous request");
+        response = e.toString();
         e.printStackTrace();
       }
+
+      System.out.println("RESPONSE BYTES: " + response);
+
+      //Sending back response to the client
+      httpExchange.sendResponseHeaders(200, response.length());
+      OutputStream outStream = httpExchange.getResponseBody();
+      outStream.write(response.getBytes());
+      outStream.close();
 
     }
 

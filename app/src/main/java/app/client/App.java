@@ -2,6 +2,8 @@ package app.client;
 
 import app.client.controllers.*;
 import app.client.views.*;
+import app.server.MyServer;
+import app.server.ServerChecker;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
@@ -20,6 +22,11 @@ public class App extends Application {
      */
     @Override
     public void start(Stage primaryStage) throws Exception {
+        // The client and API server are packaged together, so a normal Gradle run
+        // no longer requires manually launching MyServer in another terminal.
+        if (!ServerChecker.isServerRunning("localhost", 8100)) {
+            MyServer.main(null);
+        }
 
         // Set the title of the app
         primaryStage.setTitle("PantryPal");
@@ -68,6 +75,11 @@ public class App extends Application {
 
     public static void main(String[] args) {
         launch(args);
+    }
+
+    @Override
+    public void stop() {
+        MyServer.stop();
     }
 
 }

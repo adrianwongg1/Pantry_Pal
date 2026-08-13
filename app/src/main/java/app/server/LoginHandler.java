@@ -42,19 +42,20 @@ public class LoginHandler implements HttpHandler {
             } else {
               throw new Exception("Not Valid Request Method");
             }
-
-            // Sending back response to the client
-            httpExchange.sendResponseHeaders(200, response.length());
-            
-            OutputStream outStream = httpExchange.getResponseBody();
-            outStream.write(response.getBytes());
-            outStream.close();
-
         } catch (Exception e) {
             System.out.println("An erroneous request");
             response = e.toString();
             e.printStackTrace();
         }
+
+        // Sending back response to the client. This must run even on failure,
+        // since the client (called synchronously during JavaFX startup for
+        // auto-login) has no way to unblock otherwise if we never respond.
+        httpExchange.sendResponseHeaders(200, response.length());
+
+        OutputStream outStream = httpExchange.getResponseBody();
+        outStream.write(response.getBytes());
+        outStream.close();
     }
     
     /*
