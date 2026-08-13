@@ -21,11 +21,12 @@ public class MyServer {
     public static final String MONGO_URI = Configuration.mongoUri();
     
     private static HttpServer server;
+    private static ThreadPoolExecutor threadPoolExecutor;
 
     public static void main(String[] args) throws IOException {
 
         // create a thread pool to handle requests
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
+        threadPoolExecutor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
 
         // create a server
         server = HttpServer.create(
@@ -72,6 +73,13 @@ public class MyServer {
         if (server != null) {
             server.stop(0);
             server = null;
+        }
+        if (threadPoolExecutor != null) {
+            // HttpServer.stop() intentionally leaves the executor running, since it
+            // doesn't own it. Its threads are non-daemon, so without this the JVM
+            // (and the Dock icon) never exits after the window closes.
+            threadPoolExecutor.shutdownNow();
+            threadPoolExecutor = null;
         }
     }
 
